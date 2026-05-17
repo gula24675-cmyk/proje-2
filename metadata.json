@@ -1,0 +1,6 @@
+{
+  "name": "yapay zeka destekli günlük planlayıcı",
+  "description": "Professional daily planning tool that optimizes your productivity using efficient scheduling algorithms and Pomodoro-style breaks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

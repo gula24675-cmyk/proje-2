@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Collections ---
+
+    // User Profile
+    match /users/{userId} {
+      allow read: if isSignedIn(); // Allow searching/viewing profiles if needed, or restrict to isOwner(userId)
+      allow write: if isOwner(userId) && isValidUser(incoming());
+
+      function isValidUser(data) {
+        return data.keys().hasAll(['username', 'email']) 
+          && data.username is string && data.username.size() >= 1 && data.username.size() <= 100
+          && data.email is string && data.email.size() <= 256
+          && (!('phone' in data) || (data.phone is string && data.phone.size() <= 50))
+          && (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 500))
+          && (!('theme' in data) || (data.theme is string && data.theme.size() <= 50));
+      }
+    }
+
+    // Saved Plans
+    match /plans/{planId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidPlan(incoming());
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && incoming().userId == request.auth.uid && isValidPlan(incoming());
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      function isValidPlan(data) {
+        return data.keys().hasAll(['userId', 'date', 'plan', 'tasks', 'createdAt'])
+          && data.userId == request.auth.uid
+          && data.date is string && data.date.size() <= 100
+          && data.plan is list
+          && data.tasks is list
+          && data.createdAt is string; // Simplified for draft
+      }
+    }
+  }
+}

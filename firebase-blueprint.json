@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Additional profile information for the authenticated user",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "theme": { "type": "string" }
+      },
+      "required": ["username", "email"]
+    },
+    "Plan": {
+      "title": "Daily Plan",
+      "description": "A saved daily plan for a specific user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "plan": { "type": "array" },
+        "tasks": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "date", "plan", "tasks", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "plans/{planId}": {
+      "schema": "Plan",
+      "description": "Saved daily plans"
+    }
+  }
+}
