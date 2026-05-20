@@ -115,6 +115,15 @@ const THEMES = {
     border: "rgba(139, 92, 246, 0.2)",
     text: "text-purple-400",
     glow: "rgba(139, 92, 246, 0.15)"
+  },
+  galatasaray: {
+    id: "galatasaray",
+    name: "Galatasaray ❤️💛",
+    color: "#E30A17",
+    bg: "rgba(227, 10, 23, 0.11)",
+    border: "rgba(252, 190, 20, 0.35)",
+    text: "text-[#FCBE14]",
+    glow: "rgba(227, 10, 23, 0.3)"
   }
 };
 
@@ -139,7 +148,15 @@ const AVATARS = [
 
 // --- AI Initialization ---
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Lazily get the Gemini AI client to prevent module-level crashes on startup
+// if the application is deployed on Vercel without GEMINI_API_KEY configured yet.
+const getGoogleAI = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Gemini API Anahtarı (GEMINI_API_KEY) tanımlı değil. Lütfen Vercel veya çalışma ortamı panelinizden bu değişkeni tanımlayın.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 // --- Components ---
 
@@ -523,8 +540,9 @@ export default function App() {
         .map((t) => `- ${t.text} (${t.startTime} - ${t.endTime})`)
         .join("\n");
 
-      const prompt = `Bugün için şu görevlerim var:\n${taskListString}\n\nLütfen şu KESİN kurallara uyarak günlük plan oluştur:\n1. ZAMAN UYUMU: Görevlerin yanında belirttiğim (START - END) zamanlarına KESİNLİKLE uy.\n2. SADECE VERİLENLER: Plana SADECE yukarıdaki listede bulunan görevleri dahil et. \n3. OTOMATİK EKLEME YASAK: KENDİLİĞİNDEN mola (break), yemek (meal) veya başka bir aktivite ASLA EKLEME. Sadece benim verdiğim görevleri çizelgeye yaz.\n4. FORMAT: HH:MM formatını kullan.\n5. DİL: Türkçe.\n6. Çıktı: activity, duration (dakika farkı), time (HH:MM Start), type ("work" olarak işaretle) içeren JSON dizisi.`;
+      const prompt = `Bugün için şu görevlerim var:\n${taskListString}\n\nLütfen şu KESİN kurallara uyarak günlük plan oluştur:\n1. ZAMAN UYUMU: Görevlerin yanında belirttiğim (START - END) zamanlarına KESİNLİKLE uy.\n2. SADECE VERİLENLER: Plana SADECE yukarıdaki listede bulunan görevleri dahil et. \n3. OTOMATİK EKLEME YASAK: KENDİLİĞİNDEN mola (break), yemek (meal) sau başka bir aktivite ASLA EKLEME. Sadece benim verdiğim görevleri çizelgeye yaz.\n4. FORMAT: HH:MM formatını kullan.\n5. DİL: Türkçe.\n6. Çıktı: activity, duration (dakika farkı), time (HH:MM Start), type ("work" olarak işaretle) içeren JSON dizisi.`;
 
+      const ai = getGoogleAI();
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: prompt,
@@ -576,9 +594,13 @@ export default function App() {
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     
     if (targetIndex >= 0 && targetIndex < newPlan.length) {
-      const temp = newPlan[index];
-      newPlan[index] = newPlan[targetIndex];
-      newPlan[targetIndex] = temp;
+      const timeA = newPlan[index].time;
+      const timeB = newPlan[targetIndex].time;
+      
+      const temp = { ...newPlan[index] };
+      newPlan[index] = { ...newPlan[targetIndex], time: timeA };
+      newPlan[targetIndex] = { ...temp, time: timeB };
+      
       setPlan(newPlan);
     }
   };
@@ -687,15 +709,19 @@ export default function App() {
             <div className="relative w-12 h-12">
               <motion.div
                 animate={{ 
-                  filter: ["drop-shadow(0 0 8px rgba(59,130,246,0.3))", "drop-shadow(0 0 16px rgba(139,92,246,0.4))", "drop-shadow(0 0 8px rgba(59,130,246,0.3))"]
+                  filter: [
+                    `drop-shadow(0 0 8px ${THEMES[currentTheme].color}4c)`, 
+                    `drop-shadow(0 0 16px ${currentTheme === 'galatasaray' ? '#FCBE14' : '#8B5CF6'}66)`, 
+                    `drop-shadow(0 0 8px ${THEMES[currentTheme].color}4c)`
+                  ]
                 }}
                 transition={{ duration: 4, repeat: Infinity }}
               >
                 <svg viewBox="0 0 100 100" className="w-full h-full transition-transform group-hover:scale-110 duration-500" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <defs>
                     <linearGradient id="easyDayLogoGradient" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
-                      <stop offset="0%" stopColor="#3B82F6" />
-                      <stop offset="100%" stopColor="#8B5CF6" />
+                      <stop offset="0%" stopColor={THEMES[currentTheme].color} />
+                      <stop offset="100%" stopColor={currentTheme === 'galatasaray' ? '#FCBE14' : '#8B5CF6'} />
                     </linearGradient>
                   </defs>
                   <rect x="15" y="20" width="70" height="65" rx="14" fill="white" fillOpacity="0.03" stroke="url(#easyDayLogoGradient)" strokeWidth="3" />
@@ -703,15 +729,15 @@ export default function App() {
                   <rect x="30" y="10" width="4" height="15" rx="2" fill="url(#easyDayLogoGradient)" />
                   <rect x="66" y="10" width="4" height="15" rx="2" fill="url(#easyDayLogoGradient)" />
                   <path d="M38 64L48 74L72 48" stroke="url(#easyDayLogoGradient)" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
-                  <circle cx="82" cy="80" r="9" fill="#8B5CF6" fillOpacity="0.2" className="animate-pulse" />
-                  <path d="M82 74V86M76 80H88" stroke="#A78BFA" strokeWidth="2.5" strokeLinecap="round" />
+                  <circle cx="82" cy="80" r="9" fill={currentTheme === 'galatasaray' ? '#FCBE14' : '#8B5CF6'} fillOpacity="0.2" className="animate-pulse" />
+                  <path d="M82 74V86M76 80H88" stroke={currentTheme === 'galatasaray' ? '#FCBE14' : '#A78BFA'} strokeWidth="2.5" strokeLinecap="round" />
                 </svg>
               </motion.div>
             </div>
             
             <div className="flex flex-col">
               <h1 className="text-3xl font-black text-white tracking-tighter leading-none">
-                Easy<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">Day</span>
+                Easy<span className="text-transparent bg-clip-text bg-gradient-to-r" style={{ backgroundImage: `linear-gradient(to right, ${THEMES[currentTheme].color === '#E30A17' ? '#FCBE14' : THEMES[currentTheme].color}, ${currentTheme === 'galatasaray' ? '#E30A17' : '#C0AEDE'})` }}>Day</span>
               </h1>
               <div className="flex items-center gap-2 mt-1.5 overflow-hidden h-3">
                 <motion.div 
