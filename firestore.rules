@@ -39,7 +39,7 @@ service cloud.firestore {
           && data.username is string && data.username.size() >= 1 && data.username.size() <= 100
           && data.email is string && data.email.size() <= 256
           && (!('phone' in data) || (data.phone is string && data.phone.size() <= 50))
-          && (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 500))
+          && (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 2048))
           && (!('theme' in data) || (data.theme is string && data.theme.size() <= 50));
       }
     }
@@ -58,7 +58,7 @@ service cloud.firestore {
           && data.date is string && data.date.size() <= 100
           && data.plan is list
           && data.tasks is list
-          && data.createdAt is string; // Simplified for draft
+          && (data.createdAt is timestamp || data.createdAt is string);
       }
     }
   }

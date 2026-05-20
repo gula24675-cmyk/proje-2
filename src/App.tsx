@@ -27,7 +27,8 @@ import {
   getDocs,
   orderBy,
   serverTimestamp,
-  getDocFromServer
+  getDocFromServer,
+  deleteDoc
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
@@ -214,6 +215,15 @@ export default function App() {
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
             setProfile(userDoc.data() as UserProfile);
+          } else {
+            const defaultProfile: UserProfile = {
+              uid: user.uid,
+              username: user.displayName || user.email?.split('@')[0] || "Kullanıcı",
+              email: user.email || "",
+              avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
+            };
+            await setDoc(doc(db, "users", user.uid), defaultProfile);
+            setProfile(defaultProfile);
           }
           fetchHistory(user.uid);
         } catch (err) {
@@ -299,11 +309,16 @@ export default function App() {
       setShowAuthModal(false);
       showToast("Giriş Başarılı", "Google ile giriş yaptınız.");
     } catch (err: any) {
-      console.error(err);
+      console.error("Firebase Auth Error:", err);
       if (err.code === 'auth/popup-closed-by-user') {
         setAuthError("Giriş penceresi kapatıldı.");
+      } else if (err.code === 'auth/unauthorized-domain') {
+        const host = window.location.hostname;
+        setAuthError(`Yetkisiz Alan Adı hatası! Firebase Console > Authentication > Settings > Authorized Domains (Yetkilendirilen Etki Alanları) kısmına şu alan adını eklemeniz gerekir: ${host}`);
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setAuthError("Google ile Giriş yöntemi Firebase projenizde etkinleştirilmemiş. Firebase Console > Authentication > Sign-in method kısmından Google'ı aktif edin.");
       } else {
-        setAuthError("Google ile giriş yapılamadı. Tarayıcınızın pop-up'lara izin verdiğinden emin olun.");
+        setAuthError(`Google ile giriş yapılamadı (${err.code || 'Hata'}). Tarayıcınızın pop-up engelleyicisini kapatın veya uygulamayı 'Yeni Sekmede Aç' butonuyla açarak deneyin.`);
       }
     } finally {
       setLoading(false);
@@ -383,8 +398,8 @@ export default function App() {
       setProfile(newProfile);
       showToast("Profil Güncellendi", "Değişiklikler başarıyla kaydedildi.");
     } catch (err) {
-      console.error(err);
-      handleFirestoreError(err, "update", "users");
+      console.error("Profil güncelleme hatası:", err);
+      showToast("Güncelleme Başarısız", "Profil güncellenirken bir hata oluştu. Lütfen tekrar deneyin.");
     } finally {
       setLoading(false);
     }
@@ -652,6 +667,18 @@ export default function App() {
       setTasks(entry.tasks);
       setViewingHistoryId(id);
       setShowHistoryList(false);
+    }
+  };
+
+  const deleteArchivedPlan = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await deleteDoc(doc(db, "plans", id));
+      setHistory(prev => prev.filter(h => h.id !== id));
+      showToast("Arşiv Silindi", "Kayıt başarıyla buluttan silindi.");
+    } catch (err) {
+      console.error("Archive delete error:", err);
+      showToast("Silme Başarısız", "Kayıt silinirken bir sorun oluştu.");
     }
   };
 
@@ -1240,14 +1267,14 @@ export default function App() {
 
                 {/* Account Details */}
                 <div className="pt-6 border-t border-white/5 space-y-4">
-                   <div className="flex flex-col gap-1">
-                      <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">E-posta Hesabı</span>
-                      <span className="text-sm font-bold text-slate-300">{profile?.email}</span>
-                   </div>
-                   <div className="flex flex-col gap-1">
-                      <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Kullanıcı Kimliği</span>
-                      <span className="text-[10px] font-mono text-slate-500 truncate">{profile?.uid}</span>
-                   </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">E-posta Hesabı</span>
+                    <span className="text-sm font-bold text-slate-300">{profile?.email}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Kullanıcı Kimliği</span>
+                    <span className="text-[10px] font-mono text-slate-500 truncate">{profile?.uid}</span>
+                  </div>
                 </div>
               </div>
 
@@ -1320,10 +1347,7 @@ export default function App() {
                       </div>
                       <div className="flex items-center gap-3">
                         <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setHistory(history.filter(h => h.id !== item.id));
-                          }}
+                          onClick={(e) => deleteArchivedPlan(item.id, e)}
                           className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                         >
                           <Trash2 className="w-4 h-4" />
